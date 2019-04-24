@@ -13,13 +13,14 @@ from sklearn.tree import DecisionTreeClassifier
 
 def unique_values(df, value):
     return list(dict.fromkeys(df[value]))
-access_token = 'INSERT MAPBOX ACCESS TOKEN'
+access_token = 'YOUR MAPBOX ACCESS TOKEN HERE'
 css = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-# Do all data preprocessing here
+
 # Load CSV into Dataframe, Data cleansing
-sampling = 500000
-vehicle_info = pd.read_csv('Vehicle_Information.csv', engine='python', nrows=sampling) #ilangin nrows nanti
-accident_info = pd.read_csv('Accident_Information.csv', engine='python',nrows=sampling)
+sampling = 500000 # Remove sampling to load all data
+traning_sample = 150000 # Set how much data is used for training, must not exceed sampling
+vehicle_info = pd.read_csv('Vehicle_Information.csv', engine='python', nrows=sampling) # If sampling is removed, remove nrows
+accident_info = pd.read_csv('Accident_Information.csv', engine='python',nrows=sampling) # If sampling is removed, remove nrows
 df = accident_info.join(vehicle_info, lsuffix='Accident_Index', rsuffix='Accident_index')
 df.rename(columns={'Accident_IndexAccident_Index':'Accident_Index', 'YearAccident_index':'Year'}, inplace=True)
 
@@ -33,25 +34,15 @@ df = df[df.Road_Surface_Conditions != 'Data missing or out of range']
 df = df[df.Time.notnull()]
 df = df[df.Longitude.notnull()]
 df = df[df.Latitude.notnull()]
-
-light_classifier = unique_values(df, 'Light_Conditions')
-light_number = list(dict.fromkeys(LabelEncoder().fit(df.Light_Conditions).transform(df.Light_Conditions)))
-light_dict = dict(zip(light_classifier, light_number))
-weather_classiffier = unique_values(df, 'Weather_Conditions')
-weather_number = list(dict.fromkeys(LabelEncoder().fit(df.Weather_Conditions).transform(df.Weather_Conditions)))
-weather_dict = dict(zip(weather_classiffier, weather_number))
-road_classifier = unique_values(df, 'Road_Surface_Conditions')
-road_number = list(dict.fromkeys(LabelEncoder().fit(df.Road_Surface_Conditions).transform(df.Road_Surface_Conditions)))
-road_dict = dict(zip(road_classifier, road_number))
-
 severity_list = df['Accident_Severity']
+
 # replace string to numbers
 for c in ['Light_Conditions', 'Weather_Conditions', 'Road_Surface_Conditions', 'Accident_Severity']:
     df[c] = LabelEncoder().fit(df[c]).transform(df[c])
 
 # sample data for learning
-learning_data = df[['Light_Conditions', 'Weather_Conditions', 'Road_Surface_Conditions', 'Longitude', 'Latitude', 'Accident_Severity']].sample(150000)
-x = learning_data[['Light_Conditions', 'Weather_Conditions', 'Road_Surface_Conditions', 'Longitude', 'Latitude']]
+learning_data = df[['Light_Conditions', 'Weather_Conditions', 'Road_Surface_Conditions', 'Longitude', 'Latitude', 'Accident_Severity']].sample(traning_sample)
+x = learning_data[['Light_Conditions', 'Weather_Conditions', 'Road_Surface_Conditions', 'Longitude', 'Latitude']] 
 y = learning_data.Accident_Severity
 
 # create decision tree
@@ -63,28 +54,22 @@ prediction = decision_tree.predict(df[['Light_Conditions', 'Weather_Conditions',
 cm = confusion_matrix(df.Accident_Severity.tolist(), prediction) # true value, predicted value
 accuracy = (cm[0][0] + cm[1][1] + cm[2][2]) / df.shape[0] # amount of correct predictions divided by the amount of data (rows)
 
-# For cause statistics
-cause_list = df['Vehicle_Manoeuvre'].tolist()
-cause = list(dict.fromkeys(cause_list))
-cause_count = []
-for c in cause:
-    cause_count.append(cause_list.count(c))
-
 app = dash.Dash(external_stylesheets = css)
 app.config['suppress_callback_exceptions'] = True
+
 # contents of the web app
-slider_lon = [-0.21]
-slider_lat = [51.5]
 app.layout = html.Div(children=[
     html.H1("UK Traffic Accident Severity Predictor"),
     dcc.Tabs(id = "tabs", value='tab-1', children=[
-        dcc.Tab(label='Statistical Analysis',
+        dcc.Tab(label='Decision Tree Statistics',
                 value='tab-1'),
         dcc.Tab(label='Accident Map',
                 value='tab-2',),
     ]),
     html.Div(id='tabs-content')
 ])
+
+# Value updater
 @app.callback(Output('longitude_output', 'children'),
               [Input('lon', 'value')])
 def update_output(value):
@@ -93,6 +78,8 @@ def update_output(value):
               [Input('lat', 'value')])
 def update_output(value):
     return html.P("Latitude is set to " + str(value))
+
+# Real time map updating
 @app.callback(Output('map', 'figure'),
               [Input('lon', 'value'),
                Input('lat', 'value')],)
@@ -108,10 +95,10 @@ def update_map(value, value2):
                             name = 'Current location'
                         ),
             go.Scattermapbox(
-                            lon = df.Longitude[:1000],
-                            lat = df.Latitude[:1000],
+                            lon = df.Longitude[:2000],
+                            lat = df.Latitude[:2000],
                             name = 'Recorded accident',
-                            text = severity_list[:1000]
+                            text = severity_list[:2000]
                         )],
         "layout": go.Layout(
                         title = 'Accident Location',
@@ -128,23 +115,24 @@ def update_map(value, value2):
                         )
                     )
     }
+
+# Tab renderer
 @app.callback(Output('tabs-content', 'children'),
             [Input('tabs', 'value')])
 def render_content(tab):
     if tab == 'tab-1':
         return html.Div([
             dcc.Graph(
-                figure=go.Figure(
-                    data=[
-                        go.Pie(labels = cause,
-                            values = cause_count)
-                    ],
-                    layout = go.Layout(
-                        title = 'Causes of accident',
-                        height = 800
-                    )
+                figure = go.Figure(
+                    data = [go.Heatmap(
+                        z = cm,
+                        x = ['Predicted Fatal', 'Predicted Serious', 'Predicted Slight'],
+                        y = ['Actual Fatal', 'Actual Serious', 'Actual Slight']
+                    )]
                 )
-            )
+            ),
+            html.P("Number of correct predictions is " + str(cm[0][0] + cm[1][1] + cm[2][2])),
+            html.P("Accuracy of decision tree is " + str(accuracy))
         ])
     elif tab == 'tab-2':
         return html.Div([
@@ -215,6 +203,8 @@ def render_content(tab):
                 html.Div(id='prediction_output')
             ], style={'float': 'right'}),
         ])
+
+# Take arguments and use predict
 @app.callback(
     Output('prediction_output', 'children'),
     [Input('button', 'n_clicks')],
