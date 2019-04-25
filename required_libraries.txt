@@ -1,0 +1,7 @@
+* Pandas 0.24.2
+* Plotly 3.7.1
+* scikit-learn 0.20.3
+* scipy 0.13.3 or higher
+* numpy 1.8.2 or higher
+* graphviz 0.10.1
+* pydotplus 2.0.2

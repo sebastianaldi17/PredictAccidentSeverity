@@ -16,6 +16,10 @@ This project will predict the severity of an accident in a specified spot, given
   * Open your command line or terminal, and then type `pip install plotly`
 * sklearn
   * sklearn requires scikit-learn 0.20.3, scipy 0.13.3 or higher, and numpy 1.8.2 or higher. Install those three using pip first by typing `pip install numpy scipy scikit-learn sklearn` on the terminal or command line.
+* graphviz 0.10.1
+  * Open your command line or terminal, and then type `pip install graphviz`. It is not explicitly used in the code, but it is used for exporting the decision tree
+* pydotplus 2.0.2
+  * Open your command line or terminal, and then type `pip install pydotplus`.
 * [The dataset used for this project](https://www.kaggle.com/tsiaras/uk-road-safety-accidents-and-vehicles)
   * Extract both csv files and put them in the same folder as the python script (`app.py`)
 * A mapbox account. Create an account [here](https://www.mapbox.com/) and generate an access token. Your acces token can be found on the website like below:
@@ -48,16 +52,21 @@ This section will explain the code, part by part.
 * Dash dependencies (Input, Output, State) provides a means to get the arguments from the components.
 * Pandas is for reading csv files, as well as filtering and cleaning data.
 * Plotly is used for the graph itself (dash core components simply provides a means for plotly to communicate with dash)
+* Pydotplus is used for converting the decision tree into a dot file, which is then used to create the PNG file.
 * DecisionTreeClassifier is the algorithm itself, so that we do not need to recreate it from scratch.
 * LabelEncoder is used to convert strings into numbers so that Decision Tree can interpret the data.
 * Confusion_Matrix is used to create a confusion matrix, which is an easy way to check the accuracy of the decision tree.
+* Export_graphviz is used to convert the DOT file from earlier into a PNG file which can be displayed.
 ### Part 2: Reading, filtering, and cleaning data
 ![data cleaning](https://raw.githubusercontent.com/sebastianaldi17/PredictAccidentSeverity/master/images/datacleaning.PNG)
 First we use pandas to load both csv files into a single dataframe, and then combine both of them for an easier time. Then, we select the columns that we want to use as features for the training data. In this case, the columns I want is the longitude, latitude, weather condition, road condition, and lighting condition. After that, we need to clean the data from unknown or missing values so that they do not interfere with the training data. Finally, we need to change the data from string into numbers that can be intepretted by the Decision Tree.
 
-### Part 3: Creating the decision tree
+### Part 3: Creating the decision tree and exporting into an image
 ![decision tree](https://raw.githubusercontent.com/sebastianaldi17/PredictAccidentSeverity/master/images/decisiontree.PNG)
-From the data that we have cleaned, we take a random sample. The amount is set based on the `training_sample` argument, so that anyone can change how much data is sampled for the training. We separate the `Accident_Severity` column from the rest of the training data, and fit it into the decision tree. To check the accuracy of the decision tree, we need to create a confusion matrix (or count manually, but this way is faster), and take the amount of correct predictions divided by how many rows are there in the data (after cleaning).
+From the data that we have cleaned, we take a random sample. The amount is set based on the `training_sample` argument, so that anyone can change how much data is sampled for the training. We separate the `Accident_Severity` column from the rest of the training data, and fit it into the decision tree.  
+Next, we will export the decision tree into an image that can be seen. We first need to convert it into a DOT file, and then create a PNG file from the DOT file by using GraphViz. The image will be stored locally, but there are workarounds to upload the image into the dash app. I don't recommend though, because the size of the decision tree can be huge, depending on how many training data is used. An example of the finished picture looks like this:  
+![](https://github.com/sebastianaldi17/PredictAccidentSeverity/blob/master/images/sampletree.png?raw=true)  
+Finally, to check the accuracy of the decision tree, we need to create a confusion matrix (or count manually, but this way is faster), and take the amount of correct predictions divided by how many rows are there in the data (after cleaning).
 
 ### Part 4: The web application
 We wil divide this section into some parts. The first is the base layout.

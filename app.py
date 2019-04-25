@@ -4,12 +4,15 @@ import dash_html_components as html
 import pandas as pd
 import plotly.graph_objs as go
 import plotly.plotly as py
+import pydotplus
 
 from dash.dependencies import Input, Output, State
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import confusion_matrix
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.externals.six import StringIO
+from sklearn.tree import export_graphviz
 
 def unique_values(df, value):
     return list(dict.fromkeys(df[value]))
@@ -17,8 +20,8 @@ access_token = 'YOUR MAPBOX ACCESS TOKEN HERE'
 css = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 # Load CSV into Dataframe, Data cleansing
-sampling = 500000 # Remove sampling to load all data
-traning_sample = 150000 # Set how much data is used for training, must not exceed sampling
+sampling = 200000 # Remove sampling to load all data
+traning_sample = 60000 # Set how much data is used for training, must not exceed sampling
 vehicle_info = pd.read_csv('Vehicle_Information.csv', engine='python', nrows=sampling) # If sampling is removed, remove nrows
 accident_info = pd.read_csv('Accident_Information.csv', engine='python',nrows=sampling) # If sampling is removed, remove nrows
 df = accident_info.join(vehicle_info, lsuffix='Accident_Index', rsuffix='Accident_index')
@@ -46,8 +49,15 @@ x = learning_data[['Light_Conditions', 'Weather_Conditions', 'Road_Surface_Condi
 y = learning_data.Accident_Severity
 
 # create decision tree
-decision_tree = DecisionTreeClassifier()
+decision_tree = DecisionTreeClassifier(min_samples_leaf = 100, min_samples_split = 100)
 decision_tree.fit(x, y)
+
+# create decision tree image
+dot_data = StringIO()
+export_graphviz(decision_tree, out_file = dot_data, filled = True, rounded = True, special_characters = True, feature_names = ['Light_Conditions', 'Weather_Conditions', 'Road_Surface_Conditions', 'Longitude', 'Latitude'], class_names = ['Fatal', 'Serious', 'Slight'])
+graph = pydotplus.graph_from_dot_data(dot_data.getvalue())
+print("creating image")
+graph.write_png('tree.png')
 
 # create confusion matrix
 prediction = decision_tree.predict(df[['Light_Conditions', 'Weather_Conditions', 'Road_Surface_Conditions', 'Longitude', 'Latitude']])
